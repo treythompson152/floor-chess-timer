@@ -33,7 +33,7 @@
     }
     .red { background: red; }
     .blue { background: blue; }
-    /* Drain overlay – its height is updated continuously */
+    /* Drain overlay – its height is updated continuously for a smooth transition */
     .drain {
       position: absolute;
       bottom: 0;
@@ -97,9 +97,9 @@
     <div class="modal-content">
       <h2>Start Chess Timer</h2>
       <p>
-        Press <strong>S</strong> to switch turns.<br>
-        Press <strong>P</strong> to pause/resume the timer.<br>
-        Press <strong>R</strong> to restart the game.
+        Press <strong>s</strong> to switch turns (with a correct sound).<br>
+        Press <strong>p</strong> to pause/resume the timer.<br>
+        Press <strong>r</strong> to restart the game.
       </p>
       <label for="redTimeInput">Red Timer (seconds):</label>
       <input type="number" id="redTimeInput" value="30" min="1">
@@ -115,8 +115,8 @@
   </div>
 
   <script>
-    // Global timer variables (in seconds, as floats)
-    let redTime, blueTime, redInitial, blueInitial;
+    // Initialize timer values to 30 so they don't show NaN on startup.
+    let redTime = 30, blueTime = 30, redInitial = 30, blueInitial = 30;
     let currentPlayer; // "red" or "blue"
     let paused = true; // Game starts paused
     let lastUpdateTime;
@@ -153,7 +153,7 @@
       blueDrain.style.backgroundColor = interpolateColor([0, 0, 139], [200, 200, 255], blueFraction);
     }
 
-    // Continuous update loop using requestAnimationFrame for smooth drain transition.
+    // Continuous update loop using requestAnimationFrame for a smooth drain transition.
     function animate() {
       const now = performance.now();
       const delta = (now - lastUpdateTime) / 1000;
@@ -184,7 +184,6 @@
           }
         }
       }
-
       updateDisplays();
       requestAnimationFrame(animate);
     }
@@ -204,13 +203,38 @@
       oscillator.stop(audioCtx.currentTime + 1);
     }
 
+    // Play the switch (trivia correct) sound effect.
+    function playSwitchSound() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(600, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.1);
+
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(800, audioCtx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0.5, audioCtx.currentTime + 0.15);
+      osc2.start(audioCtx.currentTime + 0.15);
+      osc2.stop(audioCtx.currentTime + 0.25);
+    }
+
     // Global key handling:
-    // Press "s" to switch turns manually (if not paused),
-    // "p" to pause/resume, and "r" to restart (which shows the startup popup).
+    // Press "s" to switch turns manually (playing the switch sound), 
+    // "p" to pause/resume, and "r" to restart (showing the startup popup).
     document.addEventListener("keydown", (e) => {
       const key = e.key.toLowerCase();
       if (key === "s") {
         if (!paused) {
+          playSwitchSound();
           currentPlayer = (currentPlayer === "red") ? "blue" : "red";
           lastUpdateTime = performance.now();
         }
