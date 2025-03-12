@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Chess Timer</title>
   <style>
-    /* Global resets and fonts */
     html, body {
       margin: 0;
       padding: 0;
@@ -12,8 +11,6 @@
       font-family: Arial, sans-serif;
     }
     .hidden { display: none; }
-
-    /* Setup screen styling */
     .setup-screen {
       display: flex;
       justify-content: center;
@@ -33,8 +30,6 @@
       margin: 10px;
       padding: 5px;
     }
-
-    /* Game screen: split into two halves */
     .game-screen {
       display: flex;
       height: 100%;
@@ -48,25 +43,20 @@
       align-items: center;
       overflow: hidden;
       color: white;
-      /* Make the timer number really big for projection */
       font-size: 10vw;
     }
-    /* Red and blue backgrounds */
     .red { background: red; }
     .blue { background: blue; }
-
-    /* The drain (hourglass) effect */
+    /* Drain overlay now represents elapsed time (fills upward) */
     .drain {
       position: absolute;
       bottom: 0;
       left: 0;
       width: 100%;
-      /* Start full and then decrease in height */
-      height: 100%;
-      transition: height 1s linear;
+      height: 0%; /* start empty */
+      transition: height 1s linear, background-color 1s linear;
       z-index: 1;
     }
-    /* Ensure the numeric display sits above the drain */
     .timer {
       position: relative;
       z-index: 2;
@@ -97,7 +87,7 @@
         <button id="startButton">Start Game</button>
       </div>
       <p style="font-size: 1em; margin-top:20px;">
-        Press SPACE to switch turns (with a ding) and "p" to pause/resume.
+        Press <strong>s</strong> to switch turns (with a happy ding), "p" to pause/resume, or Enter to start.
       </p>
     </div>
   </div>
@@ -107,69 +97,83 @@
     <!-- Red side -->
     <div id="redSide" class="player red">
       <div class="timer" id="redDisplay">300</div>
-      <!-- The drain overlay; for a red player you might use a lighter red -->
-      <div id="redDrain" class="drain" style="background-color: rgba(255,200,200,0.5);"></div>
+      <div id="redDrain" class="drain"></div>
     </div>
     <!-- Blue side -->
     <div id="blueSide" class="player blue">
       <div class="timer" id="blueDisplay">300</div>
-      <!-- For blue, a lighter blue overlay -->
-      <div id="blueDrain" class="drain" style="background-color: rgba(200,200,255,0.5);"></div>
+      <div id="blueDrain" class="drain"></div>
     </div>
   </div>
 
   <script>
-    // Global variables to hold times and state
     let redTime, blueTime, redInitial, blueInitial;
     let currentPlayer; // "red" or "blue"
     let timerInterval = null;
     let paused = false;
 
-    // Get references to displays and drain elements
     const redDisplay = document.getElementById('redDisplay');
     const blueDisplay = document.getElementById('blueDisplay');
     const redDrain = document.getElementById('redDrain');
     const blueDrain = document.getElementById('blueDrain');
 
-    // When "Start Game" is clicked, read inputs and switch screens
-    document.getElementById('startButton').addEventListener('click', function(){
+    // Colors for interpolation:
+    // For red: from dark red to light red.
+    const redStartColor = [139, 0, 0];      
+    const redEndColor   = [255, 200, 200];  
+    // For blue: from dark blue to light blue.
+    const blueStartColor = [0, 0, 139];      
+    const blueEndColor   = [200, 200, 255];  
+
+    // Helper: interpolate between two colors given as [r,g,b] arrays.
+    function interpolateColor(start, end, factor) {
+      const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
+      return `rgb(${result[0]},${result[1]},${result[2]})`;
+    }
+
+    // Update displays and drain overlays
+    function updateDisplays() {
+      redDisplay.textContent = redTime;
+      blueDisplay.textContent = blueTime;
+      
+      let redElapsed = (redInitial - redTime) / redInitial;
+      let blueElapsed = (blueInitial - blueTime) / blueInitial;
+      
+      redDrain.style.height = (redElapsed * 100) + '%';
+      blueDrain.style.height = (blueElapsed * 100) + '%';
+      
+      redDrain.style.backgroundColor = interpolateColor(redStartColor, redEndColor, redElapsed);
+      blueDrain.style.backgroundColor = interpolateColor(blueStartColor, blueEndColor, blueElapsed);
+    }
+
+    // Start game when button is clicked or Enter is pressed on the setup screen.
+    document.getElementById('startButton').addEventListener('click', startGame);
+    function startGame() {
       redTime = parseInt(document.getElementById('redTime').value);
       blueTime = parseInt(document.getElementById('blueTime').value);
       redInitial = redTime;
       blueInitial = blueTime;
       currentPlayer = document.getElementById('startingPlayer').value;
       
-      // Hide setup and show game screen
       document.getElementById('setup').classList.add('hidden');
       document.getElementById('game').classList.remove('hidden');
       
       updateDisplays();
       startTimer();
-    });
-
-    // Update the numeric displays and drain heights
-    function updateDisplays() {
-      redDisplay.textContent = redTime;
-      blueDisplay.textContent = blueTime;
-      
-      let redPercent = (redTime / redInitial) * 100;
-      let bluePercent = (blueTime / blueInitial) * 100;
-      redDrain.style.height = redPercent + '%';
-      blueDrain.style.height = bluePercent + '%';
     }
 
-    // Timer function: tick every second
+    // Timer tick function
     function startTimer() {
       if(timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(function(){
-        if(paused) return;  // Do nothing if paused
+        if(paused) return;
         if(currentPlayer === 'red') {
           if(redTime > 0) {
             redTime--;
             updateDisplays();
           } else {
             clearInterval(timerInterval);
-            alert("Red's time is up!");
+            playBuzzer();
           }
         } else {
           if(blueTime > 0) {
@@ -177,39 +181,69 @@
             updateDisplays();
           } else {
             clearInterval(timerInterval);
-            alert("Blue's time is up!");
+            playBuzzer();
           }
         }
       }, 1000);
     }
 
-    // Listen for key presses
+    // Global key handling
     document.addEventListener('keydown', function(e) {
-      // Space: switch turn (if not paused) with a "ding"
-      if (e.code === 'Space') {
-        playDing();
-        if (!paused) {
-          currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
+      // On setup screen, Enter starts the game.
+      if (!document.getElementById('setup').classList.contains('hidden')) {
+        if (e.key === 'Enter') {
+          startGame();
+          return;
         }
-      }
-      // "p": toggle pause/resume
-      if (e.key.toLowerCase() === 'p') {
-        paused = !paused;
+      } else {
+        // In the game: "s" switches turn, "p" pauses/resumes.
+        if (e.key.toLowerCase() === 's') {
+          playSwitchDing();
+          if (!paused) {
+            currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
+          }
+        }
+        if (e.key.toLowerCase() === 'p') {
+          paused = !paused;
+        }
       }
     });
 
-    // Play a simple "ding" sound using the Web Audio API
-    function playDing() {
+    // Play a happy/confirmational ding when switching players.
+    function playSwitchDing() {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
+      
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // 880 Hz tone
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
+      
       gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+      
       oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.1);  // Short beep
+      oscillator.stop(audioCtx.currentTime + 0.15);
+    }
+
+    // Play a buzzer sound when the game is over.
+    function playBuzzer() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+      
+      gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+      
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 1);
     }
   </script>
 </body>
