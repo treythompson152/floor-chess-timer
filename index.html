@@ -154,25 +154,25 @@
     let currentPlayer; // "red" or "blue"
     let timerInterval = null;
     let paused = true;  // Start paused by default
-    
+
     // Element references for timer displays and drains
     const redDisplay = document.getElementById('redDisplay');
     const blueDisplay = document.getElementById('blueDisplay');
     const redDrain = document.getElementById('redDrain');
     const blueDrain = document.getElementById('blueDrain');
-    
+
     // Colors for drain interpolation
     const redStartColor = [139, 0, 0];
     const redEndColor   = [255, 200, 200];
     const blueStartColor = [0, 0, 139];
     const blueEndColor   = [200, 200, 255];
-    
+
     // Helper: interpolate between two colors given as [r,g,b] arrays.
     function interpolateColor(start, end, factor) {
       const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
       return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
     }
-    
+
     // Update displays and drain overlays
     function updateDisplays() {
       redDisplay.textContent = redTime;
@@ -187,8 +187,8 @@
       redDrain.style.backgroundColor = interpolateColor(redStartColor, redEndColor, redElapsed);
       blueDrain.style.backgroundColor = interpolateColor(blueStartColor, blueEndColor, blueElapsed);
     }
-    
-    // Start timer ticking
+
+    // Start timer ticking. If a player's time reaches 0, pause and switch players.
     function startTimer() {
       if (timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(() => {
@@ -197,22 +197,31 @@
           if (redTime > 0) {
             redTime--;
             updateDisplays();
-          } else {
-            clearInterval(timerInterval);
-            playBuzzer();
+            if (redTime === 0) {
+              // Red's time ran out: set to 0, play buzzer, switch player and pause.
+              redTime = 0;
+              updateDisplays();
+              playBuzzer();
+              currentPlayer = 'blue';
+              paused = true;
+            }
           }
-        } else {
+        } else { // blue's turn
           if (blueTime > 0) {
             blueTime--;
             updateDisplays();
-          } else {
-            clearInterval(timerInterval);
-            playBuzzer();
+            if (blueTime === 0) {
+              blueTime = 0;
+              updateDisplays();
+              playBuzzer();
+              currentPlayer = 'red';
+              paused = true;
+            }
           }
         }
       }, 1000);
     }
-    
+
     // Start (or restart) the game using current settings from the modal inputs.
     function startGame() {
       redTime = parseInt(document.getElementById('redTimeInput').value);
@@ -224,14 +233,14 @@
       updateDisplays();
       startTimer();
     }
-    
-    // Restart game: clear timer and start fresh.
+
+    // Restart game: clear timer and start fresh (respects current settings).
     function restartGame() {
       clearInterval(timerInterval);
       paused = true;
       startGame();
     }
-    
+
     // --- Event Listeners ---
     // Show settings modal when cog is clicked.
     document.getElementById('settingsIcon').addEventListener('click', () => {
@@ -297,7 +306,7 @@
       osc2.stop(audioCtx.currentTime + 0.25);
     }
     
-    // Play a buzzer sound when the game is over.
+    // Play a buzzer sound when a timer runs out.
     function playBuzzer() {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
@@ -315,7 +324,7 @@
     // On page load, start the game (in paused mode) and show the controls modal.
     window.onload = () => {
       startGame();
-      // Show the controls popup
+      // Show the controls popup on load.
       document.getElementById('controlsModal').style.display = 'flex';
     };
   </script>
