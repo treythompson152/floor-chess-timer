@@ -9,13 +9,21 @@
       padding: 0;
       height: 100%;
       font-family: Arial, sans-serif;
+      overflow: hidden; /* Prevent scrolling */
     }
     .hidden { display: none; }
+    /* Both screens fill the viewport */
+    .setup-screen, .game-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
     .setup-screen {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100%;
       background: #f0f0f0;
     }
     .setup-screen div {
@@ -32,7 +40,6 @@
     }
     .game-screen {
       display: flex;
-      height: 100%;
     }
     .player {
       flex: 1;
@@ -47,7 +54,7 @@
     }
     .red { background: red; }
     .blue { background: blue; }
-    /* Drain overlay now represents elapsed time (fills upward) */
+    /* Drain overlay representing elapsed time */
     .drain {
       position: absolute;
       bottom: 0;
@@ -155,6 +162,7 @@
       blueInitial = blueTime;
       currentPlayer = document.getElementById('startingPlayer').value;
       
+      // Hide the setup screen and immediately show the game screen
       document.getElementById('setup').classList.add('hidden');
       document.getElementById('game').classList.remove('hidden');
       
