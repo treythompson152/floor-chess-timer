@@ -33,7 +33,7 @@
     }
     .red { background: red; }
     .blue { background: blue; }
-    /* Drain overlay – no CSS transition here because we'll update continuously */
+    /* Drain overlay – its height is updated continuously */
     .drain {
       position: absolute;
       bottom: 0;
@@ -42,7 +42,7 @@
       height: 0%;
       z-index: 1;
     }
-    /* Timer text sits above drain */
+    /* Timer text sits above the drain */
     .timer {
       position: relative;
       z-index: 2;
@@ -92,10 +92,15 @@
     </div>
   </div>
 
-  <!-- Startup Modal Popup -->
+  <!-- Startup Modal Popup (includes instructions) -->
   <div id="startupModal" class="modal">
     <div class="modal-content">
       <h2>Start Chess Timer</h2>
+      <p>
+        Press <strong>S</strong> to switch turns.<br>
+        Press <strong>P</strong> to pause/resume the timer.<br>
+        Press <strong>R</strong> to restart the game.
+      </p>
       <label for="redTimeInput">Red Timer (seconds):</label>
       <input type="number" id="redTimeInput" value="30" min="1">
       <label for="blueTimeInput">Blue Timer (seconds):</label>
@@ -126,31 +131,29 @@
     const startupModal = document.getElementById("startupModal");
     const startTimerButton = document.getElementById("startTimerButton");
 
-    // Helper: interpolate between two colors given as [r,g,b] arrays.
+    // Helper: interpolate between two colors given as [r, g, b] arrays.
     function interpolateColor(start, end, factor) {
       const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
       return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
     }
 
-    // Update displays and drain overlays continuously.
+    // Update displays and drain overlays.
+    // The drain height is computed as the fraction of total time elapsed and updated continuously.
     function updateDisplays() {
-      // Update timer text (showing the ceiling of the remaining seconds)
       redDisplay.textContent = Math.ceil(redTime);
       blueDisplay.textContent = Math.ceil(blueTime);
-
-      // Compute fraction drained (from 0 to 1)
+      
       const redFraction = Math.min(1, Math.max(0, (redInitial - redTime) / redInitial));
       const blueFraction = Math.min(1, Math.max(0, (blueInitial - blueTime) / blueInitial));
-
+      
       redDrain.style.height = (redFraction * 100) + "%";
       blueDrain.style.height = (blueFraction * 100) + "%";
-
-      // Interpolate background colors for the drain (from dark to light)
+      
       redDrain.style.backgroundColor = interpolateColor([139, 0, 0], [255, 200, 200], redFraction);
       blueDrain.style.backgroundColor = interpolateColor([0, 0, 139], [200, 200, 255], blueFraction);
     }
 
-    // Continuous update loop using requestAnimationFrame
+    // Continuous update loop using requestAnimationFrame for smooth drain transition.
     function animate() {
       const now = performance.now();
       const delta = (now - lastUpdateTime) / 1000;
@@ -201,12 +204,12 @@
       oscillator.stop(audioCtx.currentTime + 1);
     }
 
-    // Global key handling: 
-    // Press "s" to switch turns, "p" to pause/resume, and "r" to restart (showing the startup popup).
+    // Global key handling:
+    // Press "s" to switch turns manually (if not paused),
+    // "p" to pause/resume, and "r" to restart (which shows the startup popup).
     document.addEventListener("keydown", (e) => {
       const key = e.key.toLowerCase();
       if (key === "s") {
-        // Switch turn manually (if not paused)
         if (!paused) {
           currentPlayer = (currentPlayer === "red") ? "blue" : "red";
           lastUpdateTime = performance.now();
@@ -215,7 +218,6 @@
         paused = !paused;
         lastUpdateTime = performance.now();
       } else if (key === "r") {
-        // Restart: show startup modal again
         paused = true;
         startupModal.style.display = "flex";
       }
@@ -223,15 +225,13 @@
 
     // Startup modal: when "Start Timer" is clicked, initialize timers and start the game.
     startTimerButton.addEventListener("click", () => {
-      redTime = parseFloat(document.getElementById("redTimeInput").value);
-      blueTime = parseFloat(document.getElementById("blueTimeInput").value);
+      redTime = parseFloat(document.getElementById("redTimeInput").value) || 30;
+      blueTime = parseFloat(document.getElementById("blueTimeInput").value) || 30;
       redInitial = redTime;
       blueInitial = blueTime;
       currentPlayer = document.getElementById("startingColorInput").value;
-      // Reset ended flags
       redEnded = false;
       blueEnded = false;
-      // Hide the modal and unpause the game
       startupModal.style.display = "none";
       paused = false;
       lastUpdateTime = performance.now();
