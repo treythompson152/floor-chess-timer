@@ -131,4 +131,144 @@
     const blueEndColor   = [200, 200, 255];
 
     // Helper: interpolate between two colors given as [r,g,b] arrays.
-    function interpolateColor(star
+    function interpolateColor(start, end, factor) {
+      const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
+      return `rgb(${result[0]},${result[1]},${result[2]})`;
+    }
+
+    // Update displays and drain overlays
+    function updateDisplays() {
+      redDisplay.textContent = redTime;
+      blueDisplay.textContent = blueTime;
+      
+      let redElapsed = (redInitial - redTime) / redInitial;
+      let blueElapsed = (blueInitial - blueTime) / blueInitial;
+      
+      redDrain.style.height = (redElapsed * 100) + '%';
+      blueDrain.style.height = (blueElapsed * 100) + '%';
+      
+      redDrain.style.backgroundColor = interpolateColor(redStartColor, redEndColor, redElapsed);
+      blueDrain.style.backgroundColor = interpolateColor(blueStartColor, blueEndColor, blueElapsed);
+    }
+
+    // Start game: hide setup and show game screen immediately
+    document.getElementById('startButton').addEventListener('click', startGame);
+    function startGame() {
+      redTime = parseInt(document.getElementById('redTime').value);
+      blueTime = parseInt(document.getElementById('blueTime').value);
+      redInitial = redTime;
+      blueInitial = blueTime;
+      currentPlayer = document.getElementById('startingPlayer').value;
+      
+      document.getElementById('setup').classList.add('hidden');
+      document.getElementById('game').classList.remove('hidden');
+      
+      updateDisplays();
+      startTimer();
+    }
+
+    // Timer tick function
+    function startTimer() {
+      if(timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(function(){
+        if(paused) return;
+        if(currentPlayer === 'red') {
+          if(redTime > 0) {
+            redTime--;
+            updateDisplays();
+          } else {
+            clearInterval(timerInterval);
+            playBuzzer();
+          }
+        } else {
+          if(blueTime > 0) {
+            blueTime--;
+            updateDisplays();
+          } else {
+            clearInterval(timerInterval);
+            playBuzzer();
+          }
+        }
+      }, 1000);
+    }
+
+    // Restart game: stop timer, show the setup screen, and hide the game screen.
+    function restartGame() {
+      clearInterval(timerInterval);
+      paused = false;
+      document.getElementById('setup').classList.remove('hidden');
+      document.getElementById('game').classList.add('hidden');
+    }
+
+    // Global key handling
+    document.addEventListener('keydown', function(e) {
+      // On setup screen, Enter starts the game.
+      if (!document.getElementById('setup').classList.contains('hidden')) {
+        if (e.key === 'Enter') {
+          startGame();
+          return;
+        }
+      } else {
+        // In-game controls:
+        if (e.key.toLowerCase() === 's') {
+          playTriviaCorrectSound();
+          if (!paused) {
+            currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
+          }
+        }
+        if (e.key.toLowerCase() === 'p') {
+          paused = !paused;
+        }
+      }
+      
+      // At any time, R restarts the game by returning to the setup menu.
+      if (e.key.toLowerCase() === 'r') {
+        restartGame();
+      }
+    });
+
+    // Play a trivia "correct" sound effect: two quick, cheerful tones.
+    function playTriviaCorrectSound() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // First tone
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(600, audioCtx.currentTime);
+      gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      osc1.start(audioCtx.currentTime);
+      osc1.stop(audioCtx.currentTime + 0.1);
+      
+      // Second tone after a short gap
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(800, audioCtx.currentTime + 0.15);
+      gain2.gain.setValueAtTime(0.5, audioCtx.currentTime + 0.15);
+      osc2.start(audioCtx.currentTime + 0.15);
+      osc2.stop(audioCtx.currentTime + 0.25);
+    }
+
+    // Play a buzzer sound when the game is over.
+    function playBuzzer() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+      
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 1);
+    }
+  </script>
+</body>
+</html>
