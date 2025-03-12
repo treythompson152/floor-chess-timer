@@ -3,15 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <title>Chess Timer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
       height: 100%;
-      font-family: Arial, sans-serif;
       overflow: hidden; /* Prevent scrolling */
+      font-family: Arial, sans-serif;
     }
-    .hidden { display: none; }
+    .hidden { 
+      display: none; 
+    }
     /* Both screens fill the viewport */
     .setup-screen, .game-screen {
       position: fixed;
@@ -26,14 +30,16 @@
       align-items: center;
       background: #f0f0f0;
     }
-    .setup-screen div {
+    .setup-container {
       text-align: center;
       background: #fff;
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    .setup-screen input, .setup-screen select, .setup-screen button {
+    .setup-container input, 
+    .setup-container select, 
+    .setup-container button {
       font-size: 1.5em;
       margin: 10px;
       padding: 5px;
@@ -49,8 +55,8 @@
       justify-content: center;
       align-items: center;
       overflow: hidden;
-      color: white;
       font-size: 10vw;
+      color: white;
     }
     .red { background: red; }
     .blue { background: blue; }
@@ -71,9 +77,9 @@
   </style>
 </head>
 <body>
-  <!-- Setup screen -->
+  <!-- Setup Screen (visible on load) -->
   <div id="setup" class="setup-screen">
-    <div>
+    <div class="setup-container">
       <h1>Chess Timer Setup</h1>
       <div>
         <label for="redTime">Red Timer (seconds):</label>
@@ -94,19 +100,19 @@
         <button id="startButton">Start Game</button>
       </div>
       <p style="font-size: 1em; margin-top:20px;">
-        Press <strong>s</strong> to switch turns (with a correct sound), <strong>p</strong> to pause/resume, <strong>Enter</strong> to start, or <strong>R</strong> to restart.
+        Press <strong>S</strong> to switch turns, <strong>P</strong> to pause/resume, <strong>Enter</strong> to start, or <strong>R</strong> to restart.
       </p>
     </div>
   </div>
 
-  <!-- Game screen -->
+  <!-- Game Screen (hidden on load) -->
   <div id="game" class="game-screen hidden">
-    <!-- Red side -->
+    <!-- Red Side -->
     <div id="redSide" class="player red">
       <div class="timer" id="redDisplay">30</div>
       <div id="redDrain" class="drain"></div>
     </div>
-    <!-- Blue side -->
+    <!-- Blue Side -->
     <div id="blueSide" class="player blue">
       <div class="timer" id="blueDisplay">30</div>
       <div id="blueDrain" class="drain"></div>
@@ -114,35 +120,37 @@
   </div>
 
   <script>
+    // Timer variables
     let redTime, blueTime, redInitial, blueInitial;
     let currentPlayer; // "red" or "blue"
     let timerInterval = null;
     let paused = false;
-
+    
+    // Element references
     const redDisplay = document.getElementById('redDisplay');
     const blueDisplay = document.getElementById('blueDisplay');
     const redDrain = document.getElementById('redDrain');
     const blueDrain = document.getElementById('blueDrain');
-
-    // Colors for interpolation:
+    
+    // Colors for drain interpolation:
     const redStartColor = [139, 0, 0];
     const redEndColor   = [255, 200, 200];
     const blueStartColor = [0, 0, 139];
     const blueEndColor   = [200, 200, 255];
-
-    // Helper: interpolate between two colors given as [r,g,b] arrays.
+    
+    // Helper function to interpolate between two colors.
     function interpolateColor(start, end, factor) {
       const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
-      return `rgb(${result[0]},${result[1]},${result[2]})`;
+      return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
     }
-
-    // Update displays and drain overlays
+    
+    // Update timer displays and drain overlays.
     function updateDisplays() {
       redDisplay.textContent = redTime;
       blueDisplay.textContent = blueTime;
       
-      let redElapsed = (redInitial - redTime) / redInitial;
-      let blueElapsed = (blueInitial - blueTime) / blueInitial;
+      const redElapsed = (redInitial - redTime) / redInitial;
+      const blueElapsed = (blueInitial - blueTime) / blueInitial;
       
       redDrain.style.height = (redElapsed * 100) + '%';
       blueDrain.style.height = (blueElapsed * 100) + '%';
@@ -150,30 +158,14 @@
       redDrain.style.backgroundColor = interpolateColor(redStartColor, redEndColor, redElapsed);
       blueDrain.style.backgroundColor = interpolateColor(blueStartColor, blueEndColor, blueElapsed);
     }
-
-    // Start game: hide setup and show game screen immediately
-    document.getElementById('startButton').addEventListener('click', startGame);
-    function startGame() {
-      redTime = parseInt(document.getElementById('redTime').value);
-      blueTime = parseInt(document.getElementById('blueTime').value);
-      redInitial = redTime;
-      blueInitial = blueTime;
-      currentPlayer = document.getElementById('startingPlayer').value;
-      
-      document.getElementById('setup').classList.add('hidden');
-      document.getElementById('game').classList.remove('hidden');
-      
-      updateDisplays();
-      startTimer();
-    }
-
-    // Timer tick function
+    
+    // Start the timer ticking.
     function startTimer() {
-      if(timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(function(){
-        if(paused) return;
-        if(currentPlayer === 'red') {
-          if(redTime > 0) {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (paused) return;
+        if (currentPlayer === 'red') {
+          if (redTime > 0) {
             redTime--;
             updateDisplays();
           } else {
@@ -181,7 +173,7 @@
             playBuzzer();
           }
         } else {
-          if(blueTime > 0) {
+          if (blueTime > 0) {
             blueTime--;
             updateDisplays();
           } else {
@@ -191,25 +183,41 @@
         }
       }, 1000);
     }
-
-    // Restart game: stop timer, show the setup screen, and hide the game screen.
+    
+    // Start the game: set timer values, hide the setup screen, and show the game screen.
+    function startGame() {
+      redTime = parseInt(document.getElementById('redTime').value);
+      blueTime = parseInt(document.getElementById('blueTime').value);
+      redInitial = redTime;
+      blueInitial = blueTime;
+      currentPlayer = document.getElementById('startingPlayer').value;
+      
+      // Hide setup and show game screen.
+      document.getElementById('setup').classList.add('hidden');
+      document.getElementById('game').classList.remove('hidden');
+      
+      updateDisplays();
+      startTimer();
+    }
+    
+    // Restart the game: stop the timer, hide the game screen, and show the setup screen.
     function restartGame() {
       clearInterval(timerInterval);
       paused = false;
-      document.getElementById('setup').classList.remove('hidden');
       document.getElementById('game').classList.add('hidden');
+      document.getElementById('setup').classList.remove('hidden');
     }
-
-    // Global key handling
-    document.addEventListener('keydown', function(e) {
-      // On setup screen, Enter starts the game.
+    
+    // Attach event listeners.
+    document.getElementById('startButton').addEventListener('click', startGame);
+    
+    document.addEventListener('keydown', (e) => {
       if (!document.getElementById('setup').classList.contains('hidden')) {
         if (e.key === 'Enter') {
           startGame();
-          return;
         }
       } else {
-        // In-game controls:
+        // In game: s to switch turn, p to pause/resume.
         if (e.key.toLowerCase() === 's') {
           playTriviaCorrectSound();
           if (!paused) {
@@ -221,16 +229,15 @@
         }
       }
       
-      // At any time, R restarts the game by returning to the setup menu.
+      // R will restart (return to setup screen) at any time.
       if (e.key.toLowerCase() === 'r') {
         restartGame();
       }
     });
-
-    // Play a trivia "correct" sound effect: two quick, cheerful tones.
+    
+    // Play a trivia "correct" sound effect: two quick cheerful tones.
     function playTriviaCorrectSound() {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      // First tone
       const osc1 = audioCtx.createOscillator();
       const gain1 = audioCtx.createGain();
       osc1.connect(gain1);
@@ -238,10 +245,9 @@
       osc1.type = 'sine';
       osc1.frequency.setValueAtTime(600, audioCtx.currentTime);
       gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      osc1.start(audioCtx.currentTime);
+      osc1.start();
       osc1.stop(audioCtx.currentTime + 0.1);
       
-      // Second tone after a short gap
       const osc2 = audioCtx.createOscillator();
       const gain2 = audioCtx.createGain();
       osc2.connect(gain2);
@@ -252,7 +258,7 @@
       osc2.start(audioCtx.currentTime + 0.15);
       osc2.stop(audioCtx.currentTime + 0.25);
     }
-
+    
     // Play a buzzer sound when the game is over.
     function playBuzzer() {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -260,12 +266,10 @@
       const gainNode = audioCtx.createGain();
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      
       oscillator.type = 'square';
       oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
-      
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 1);
     }
