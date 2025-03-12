@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The Floor - Chess Timer</title>
+  <title>Chess Timer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    /* Basic reset and font */
     html, body {
       margin: 0;
       padding: 0;
@@ -13,12 +14,13 @@
       overflow: hidden;
       font-family: Arial, sans-serif;
     }
-    /* Main Game Screen */
+    /* Main game screen fills viewport */
     .game-screen {
       display: flex;
       width: 100%;
       height: 100%;
     }
+    /* Each player’s half */
     .player {
       flex: 1;
       position: relative;
@@ -31,40 +33,30 @@
     }
     .red { background: red; }
     .blue { background: blue; }
-    /* Drain overlay representing elapsed time */
+    /* Drain overlay – no CSS transition here because we'll update continuously */
     .drain {
       position: absolute;
       bottom: 0;
       left: 0;
       width: 100%;
-      /* Default transition, may be removed when timer is 0 */
-      transition: height 1s linear, background-color 1s linear;
+      height: 0%;
       z-index: 1;
     }
+    /* Timer text sits above drain */
     .timer {
       position: relative;
       z-index: 2;
     }
-    /* Settings cog icon in top-right */
-    #settingsIcon {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      font-size: 2em;
-      color: white;
-      cursor: pointer;
-      z-index: 300;
-    }
-    /* Modal styling for popups */
+    /* Modal popup styling */
     .modal {
-      display: none; /* Hidden by default */
+      display: none; /* Shown on load */
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       background: rgba(0,0,0,0.5);
-      z-index: 200;
+      z-index: 300;
       justify-content: center;
       align-items: center;
     }
@@ -73,265 +65,125 @@
       padding: 20px;
       border-radius: 8px;
       text-align: center;
-      position: relative;
       min-width: 300px;
     }
+    .modal .modal-content label,
     .modal .modal-content input,
     .modal .modal-content select,
     .modal .modal-content button {
+      display: block;
+      margin: 10px auto;
       font-size: 1em;
-      margin: 10px;
-      padding: 5px;
-    }
-    .modal .close {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      font-size: 1.5em;
-      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <!-- Main Game Screen -->
   <div id="game" class="game-screen">
-    <!-- Red side -->
+    <!-- Red Side -->
     <div id="redSide" class="player red">
-      <div class="timer" id="redDisplay">30</div>
+      <div id="redDisplay" class="timer">30</div>
       <div id="redDrain" class="drain"></div>
     </div>
-    <!-- Blue side -->
+    <!-- Blue Side -->
     <div id="blueSide" class="player blue">
-      <div class="timer" id="blueDisplay">30</div>
+      <div id="blueDisplay" class="timer">30</div>
       <div id="blueDrain" class="drain"></div>
     </div>
   </div>
 
-  <!-- Settings Cog Icon -->
-  <div id="settingsIcon">⚙</div>
-
-  <!-- Settings Modal (for adjusting timer values and starting color) -->
-  <div id="settingsModal" class="modal">
+  <!-- Startup Modal Popup -->
+  <div id="startupModal" class="modal">
     <div class="modal-content">
-      <span id="closeSettings" class="close">&times;</span>
-      <h2>Settings</h2>
-      <div>
-        <label for="redTimeInput">Red Timer (seconds):</label>
-        <input type="number" id="redTimeInput" value="30" min="1">
-      </div>
-      <div>
-        <label for="blueTimeInput">Blue Timer (seconds):</label>
-        <input type="number" id="blueTimeInput" value="30" min="1">
-      </div>
-      <div>
-        <label for="startingColorInput">Starting Color:</label>
-        <select id="startingColorInput">
-          <option value="red">Red</option>
-          <option value="blue">Blue</option>
-        </select>
-      </div>
-      <button id="applySettingsButton">Apply Settings</button>
-    </div>
-  </div>
-
-  <!-- Controls Modal (shown on load and on restart) -->
-  <div id="controlsModal" class="modal">
-    <div class="modal-content">
-      <h2>Controls</h2>
-      <p>
-        Press <strong>S</strong> to switch turns.<br>
-        Press <strong>P</strong> to pause/resume the timer.<br>
-        Press <strong>R</strong> to restart the game.<br>
-        Click the gear icon in the top-right to adjust settings.
-      </p>
-      <div>
-        <label for="startingColorControl">Starting Color:</label>
-        <select id="startingColorControl">
-          <option value="red">Red</option>
-          <option value="blue">Blue</option>
-        </select>
-      </div>
+      <h2>Start Chess Timer</h2>
+      <label for="redTimeInput">Red Timer (seconds):</label>
+      <input type="number" id="redTimeInput" value="30" min="1">
+      <label for="blueTimeInput">Blue Timer (seconds):</label>
+      <input type="number" id="blueTimeInput" value="30" min="1">
+      <label for="startingColorInput">Starting Color:</label>
+      <select id="startingColorInput">
+        <option value="red">Red</option>
+        <option value="blue">Blue</option>
+      </select>
       <button id="startTimerButton">Start Timer</button>
     </div>
   </div>
 
   <script>
-    // Global timer variables and default starting color
+    // Global timer variables (in seconds, as floats)
     let redTime, blueTime, redInitial, blueInitial;
     let currentPlayer; // "red" or "blue"
-    let timerInterval = null;
-    let paused = true;  // Start paused by default
-    let defaultStartingColor = "red"; // initial default
+    let paused = true; // Game starts paused
+    let lastUpdateTime;
+    // Flags to ensure buzzer plays once per turn end.
+    let redEnded = false, blueEnded = false;
 
-    // Element references for timer displays and drains
-    const redDisplay = document.getElementById('redDisplay');
-    const blueDisplay = document.getElementById('blueDisplay');
-    const redDrain = document.getElementById('redDrain');
-    const blueDrain = document.getElementById('blueDrain');
+    // Element references
+    const redDisplay = document.getElementById("redDisplay");
+    const blueDisplay = document.getElementById("blueDisplay");
+    const redDrain = document.getElementById("redDrain");
+    const blueDrain = document.getElementById("blueDrain");
+    const startupModal = document.getElementById("startupModal");
+    const startTimerButton = document.getElementById("startTimerButton");
 
-    // Colors for drain interpolation
-    const redStartColor = [139, 0, 0];
-    const redEndColor   = [255, 200, 200];
-    const blueStartColor = [0, 0, 139];
-    const blueEndColor   = [200, 200, 255];
-
-    // Helper: interpolate between two colors given as [r, g, b] arrays.
+    // Helper: interpolate between two colors given as [r,g,b] arrays.
     function interpolateColor(start, end, factor) {
       const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
       return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
     }
 
-    // Update displays and drain overlays.
-    // If a player's time is 0, the drain is updated instantly (no transition).
+    // Update displays and drain overlays continuously.
     function updateDisplays() {
-      redDisplay.textContent = redTime;
-      blueDisplay.textContent = blueTime;
-      
-      const redElapsed = (redInitial - redTime) / redInitial;
-      const blueElapsed = (blueInitial - blueTime) / blueInitial;
-      
-      // For red drain: remove transition if timer is 0.
-      if (redTime === 0) {
-        redDrain.style.transition = "none";
-      } else {
-        redDrain.style.transition = "height 1s linear, background-color 1s linear";
-      }
-      
-      // For blue drain: remove transition if timer is 0.
-      if (blueTime === 0) {
-        blueDrain.style.transition = "none";
-      } else {
-        blueDrain.style.transition = "height 1s linear, background-color 1s linear";
-      }
-      
-      redDrain.style.height = (redElapsed * 100) + '%';
-      blueDrain.style.height = (blueElapsed * 100) + '%';
-      
-      redDrain.style.backgroundColor = interpolateColor(redStartColor, redEndColor, redElapsed);
-      blueDrain.style.backgroundColor = interpolateColor(blueStartColor, blueEndColor, blueElapsed);
+      // Update timer text (showing the ceiling of the remaining seconds)
+      redDisplay.textContent = Math.ceil(redTime);
+      blueDisplay.textContent = Math.ceil(blueTime);
+
+      // Compute fraction drained (from 0 to 1)
+      const redFraction = Math.min(1, Math.max(0, (redInitial - redTime) / redInitial));
+      const blueFraction = Math.min(1, Math.max(0, (blueInitial - blueTime) / blueInitial));
+
+      redDrain.style.height = (redFraction * 100) + "%";
+      blueDrain.style.height = (blueFraction * 100) + "%";
+
+      // Interpolate background colors for the drain (from dark to light)
+      redDrain.style.backgroundColor = interpolateColor([139, 0, 0], [255, 200, 200], redFraction);
+      blueDrain.style.backgroundColor = interpolateColor([0, 0, 139], [200, 200, 255], blueFraction);
     }
 
-    // Start timer ticking. If a player's time reaches 0, play buzzer, pause, and switch players.
-    function startTimer() {
-      if (timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        if (paused) return;
-        if (currentPlayer === 'red') {
+    // Continuous update loop using requestAnimationFrame
+    function animate() {
+      const now = performance.now();
+      const delta = (now - lastUpdateTime) / 1000;
+      lastUpdateTime = now;
+
+      if (!paused) {
+        if (currentPlayer === "red") {
           if (redTime > 0) {
-            redTime--;
-            updateDisplays();
-            if (redTime === 0) {
-              updateDisplays();
+            redTime = Math.max(0, redTime - delta);
+            if (redTime === 0 && !redEnded) {
+              redEnded = true;
               playBuzzer();
-              currentPlayer = 'blue';
+              currentPlayer = "blue";
+              blueEnded = false;
               paused = true;
             }
           }
-        } else { // blue's turn
+        } else { // currentPlayer === "blue"
           if (blueTime > 0) {
-            blueTime--;
-            updateDisplays();
-            if (blueTime === 0) {
-              updateDisplays();
+            blueTime = Math.max(0, blueTime - delta);
+            if (blueTime === 0 && !blueEnded) {
+              blueEnded = true;
               playBuzzer();
-              currentPlayer = 'red';
+              currentPlayer = "red";
+              redEnded = false;
               paused = true;
             }
           }
         }
-      }, 1000);
-    }
+      }
 
-    // Start (or restart) the game using current timer settings.
-    function startGame() {
-      redTime = parseInt(document.getElementById('redTimeInput').value);
-      blueTime = parseInt(document.getElementById('blueTimeInput').value);
-      redInitial = redTime;
-      blueInitial = blueTime;
-      // Use the default starting color (which may have been updated via settings or controls)
-      currentPlayer = defaultStartingColor;
       updateDisplays();
-      startTimer();
-    }
-
-    // Restart game: clear timer, restart, and show controls modal to choose starting color.
-    function restartGame() {
-      clearInterval(timerInterval);
-      paused = true;
-      startGame();
-      document.getElementById('controlsModal').style.display = 'flex';
-    }
-
-    // --- Event Listeners ---
-    // Show settings modal when cog is clicked.
-    document.getElementById('settingsIcon').addEventListener('click', () => {
-      document.getElementById('settingsModal').style.display = 'flex';
-    });
-
-    // Close settings modal when close icon is clicked.
-    document.getElementById('closeSettings').addEventListener('click', () => {
-      document.getElementById('settingsModal').style.display = 'none';
-    });
-
-    // Apply settings and restart game.
-    document.getElementById('applySettingsButton').addEventListener('click', () => {
-      document.getElementById('settingsModal').style.display = 'none';
-      // Update default starting color from settings modal
-      defaultStartingColor = document.getElementById('startingColorInput').value;
-      // Sync the controls modal starting color select to match
-      document.getElementById('startingColorControl').value = defaultStartingColor;
-      restartGame();
-    });
-
-    // Controls modal "Start Timer" button: set starting color and unpause.
-    document.getElementById('startTimerButton').addEventListener('click', () => {
-      // Get the chosen starting color from the controls modal.
-      defaultStartingColor = document.getElementById('startingColorControl').value;
-      currentPlayer = defaultStartingColor;
-      document.getElementById('controlsModal').style.display = 'none';
-      paused = false;
-    });
-
-    // Global key handling:
-    document.addEventListener('keydown', (e) => {
-      // In-game controls:
-      if (e.key.toLowerCase() === 's') {
-        playTriviaCorrectSound();
-        if (!paused) {
-          currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
-        }
-      }
-      if (e.key.toLowerCase() === 'p') {
-        paused = !paused;
-      }
-      if (e.key.toLowerCase() === 'r') {
-        restartGame();
-      }
-    });
-
-    // --- Sound Effects ---
-    // Play a trivia "correct" sound effect: two quick, cheerful tones.
-    function playTriviaCorrectSound() {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc1 = audioCtx.createOscillator();
-      const gain1 = audioCtx.createGain();
-      osc1.connect(gain1);
-      gain1.connect(audioCtx.destination);
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(600, audioCtx.currentTime);
-      gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      osc1.start();
-      osc1.stop(audioCtx.currentTime + 0.1);
-
-      const osc2 = audioCtx.createOscillator();
-      const gain2 = audioCtx.createGain();
-      osc2.connect(gain2);
-      gain2.connect(audioCtx.destination);
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(800, audioCtx.currentTime + 0.15);
-      gain2.gain.setValueAtTime(0.5, audioCtx.currentTime + 0.15);
-      osc2.start(audioCtx.currentTime + 0.15);
-      osc2.stop(audioCtx.currentTime + 0.25);
+      requestAnimationFrame(animate);
     }
 
     // Play a buzzer sound when a timer runs out.
@@ -341,7 +193,7 @@
       const gainNode = audioCtx.createGain();
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      oscillator.type = 'square';
+      oscillator.type = "square";
       oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
       gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
@@ -349,12 +201,47 @@
       oscillator.stop(audioCtx.currentTime + 1);
     }
 
-    // On page load, start the game (in paused mode) and show the controls modal.
+    // Global key handling: 
+    // Press "s" to switch turns, "p" to pause/resume, and "r" to restart (showing the startup popup).
+    document.addEventListener("keydown", (e) => {
+      const key = e.key.toLowerCase();
+      if (key === "s") {
+        // Switch turn manually (if not paused)
+        if (!paused) {
+          currentPlayer = (currentPlayer === "red") ? "blue" : "red";
+          lastUpdateTime = performance.now();
+        }
+      } else if (key === "p") {
+        paused = !paused;
+        lastUpdateTime = performance.now();
+      } else if (key === "r") {
+        // Restart: show startup modal again
+        paused = true;
+        startupModal.style.display = "flex";
+      }
+    });
+
+    // Startup modal: when "Start Timer" is clicked, initialize timers and start the game.
+    startTimerButton.addEventListener("click", () => {
+      redTime = parseFloat(document.getElementById("redTimeInput").value);
+      blueTime = parseFloat(document.getElementById("blueTimeInput").value);
+      redInitial = redTime;
+      blueInitial = blueTime;
+      currentPlayer = document.getElementById("startingColorInput").value;
+      // Reset ended flags
+      redEnded = false;
+      blueEnded = false;
+      // Hide the modal and unpause the game
+      startupModal.style.display = "none";
+      paused = false;
+      lastUpdateTime = performance.now();
+    });
+
+    // On page load, show the startup modal and start the animation loop.
     window.onload = () => {
-      // Initialize defaultStartingColor from settings modal value.
-      defaultStartingColor = document.getElementById('startingColorInput').value;
-      startGame();
-      document.getElementById('controlsModal').style.display = 'flex';
+      startupModal.style.display = "flex";
+      lastUpdateTime = performance.now();
+      animate();
     };
   </script>
 </body>
