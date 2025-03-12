@@ -13,39 +13,11 @@
       overflow: hidden; /* Prevent scrolling */
       font-family: Arial, sans-serif;
     }
-    .hidden { 
-      display: none; 
-    }
-    /* Both screens fill the viewport */
-    .setup-screen, .game-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-    }
-    .setup-screen {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #f0f0f0;
-    }
-    .setup-container {
-      text-align: center;
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .setup-container input, 
-    .setup-container select, 
-    .setup-container button {
-      font-size: 1.5em;
-      margin: 10px;
-      padding: 5px;
-    }
+    /* Main game screen fills viewport */
     .game-screen {
       display: flex;
+      width: 100%;
+      height: 100%;
     }
     .player {
       flex: 1;
@@ -74,77 +46,122 @@
       position: relative;
       z-index: 2;
     }
+    /* Settings cog icon in top-right */
+    #settingsIcon {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      font-size: 2em;
+      color: white;
+      cursor: pointer;
+      z-index: 100;
+    }
+    /* Modal overlay for settings */
+    #settingsModal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    #settingsModal .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      position: relative;
+      min-width: 300px;
+    }
+    #settingsModal .modal-content input,
+    #settingsModal .modal-content select,
+    #settingsModal .modal-content button {
+      font-size: 1em;
+      margin: 10px;
+      padding: 5px;
+    }
+    /* Close icon for the modal */
+    #closeModal {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <!-- Setup Screen (visible on load) -->
-  <div id="setup" class="setup-screen">
-    <div class="setup-container">
-      <h1>Chess Timer Setup</h1>
-      <div>
-        <label for="redTime">Red Timer (seconds):</label>
-        <input type="number" id="redTime" value="30" min="1">
-      </div>
-      <div>
-        <label for="blueTime">Blue Timer (seconds):</label>
-        <input type="number" id="blueTime" value="30" min="1">
-      </div>
-      <div>
-        <label for="startingPlayer">Starting Player:</label>
-        <select id="startingPlayer">
-          <option value="red">Red</option>
-          <option value="blue">Blue</option>
-        </select>
-      </div>
-      <div>
-        <button id="startButton">Start Game</button>
-      </div>
-      <p style="font-size: 1em; margin-top:20px;">
-        Press <strong>S</strong> to switch turns, <strong>P</strong> to pause/resume, <strong>Enter</strong> to start, or <strong>R</strong> to restart.
-      </p>
-    </div>
-  </div>
-
-  <!-- Game Screen (hidden on load) -->
-  <div id="game" class="game-screen hidden">
-    <!-- Red Side -->
+  <!-- Main Game Screen -->
+  <div id="game" class="game-screen">
+    <!-- Red side -->
     <div id="redSide" class="player red">
       <div class="timer" id="redDisplay">30</div>
       <div id="redDrain" class="drain"></div>
     </div>
-    <!-- Blue Side -->
+    <!-- Blue side -->
     <div id="blueSide" class="player blue">
       <div class="timer" id="blueDisplay">30</div>
       <div id="blueDrain" class="drain"></div>
     </div>
   </div>
 
+  <!-- Settings Cog Icon -->
+  <div id="settingsIcon">⚙</div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal">
+    <div class="modal-content">
+      <span id="closeModal">&times;</span>
+      <h2>Settings</h2>
+      <div>
+        <label for="redTimeInput">Red Timer (seconds):</label>
+        <input type="number" id="redTimeInput" value="30" min="1">
+      </div>
+      <div>
+        <label for="blueTimeInput">Blue Timer (seconds):</label>
+        <input type="number" id="blueTimeInput" value="30" min="1">
+      </div>
+      <div>
+        <label for="startingPlayerInput">Starting Player:</label>
+        <select id="startingPlayerInput">
+          <option value="red">Red</option>
+          <option value="blue">Blue</option>
+        </select>
+      </div>
+      <button id="applySettingsButton">Apply Settings</button>
+    </div>
+  </div>
+
   <script>
-    // Timer variables
+    // Global timer variables
     let redTime, blueTime, redInitial, blueInitial;
     let currentPlayer; // "red" or "blue"
     let timerInterval = null;
     let paused = false;
     
-    // Element references
+    // Element references for timer displays and drains
     const redDisplay = document.getElementById('redDisplay');
     const blueDisplay = document.getElementById('blueDisplay');
     const redDrain = document.getElementById('redDrain');
     const blueDrain = document.getElementById('blueDrain');
     
-    // Colors for drain interpolation:
+    // Colors for drain interpolation
     const redStartColor = [139, 0, 0];
     const redEndColor   = [255, 200, 200];
     const blueStartColor = [0, 0, 139];
     const blueEndColor   = [200, 200, 255];
     
-    // Helper function to interpolate between two colors.
+    // Helper: interpolate between two colors given as [r,g,b] arrays.
     function interpolateColor(start, end, factor) {
       const result = start.map((s, i) => Math.round(s + (end[i] - s) * factor));
       return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
     }
     
-    // Update timer displays and drain overlays.
+    // Update displays and drain overlays
     function updateDisplays() {
       redDisplay.textContent = redTime;
       blueDisplay.textContent = blueTime;
@@ -159,7 +176,7 @@
       blueDrain.style.backgroundColor = interpolateColor(blueStartColor, blueEndColor, blueElapsed);
     }
     
-    // Start the timer ticking.
+    // Start timer ticking
     function startTimer() {
       if (timerInterval) clearInterval(timerInterval);
       timerInterval = setInterval(() => {
@@ -184,57 +201,60 @@
       }, 1000);
     }
     
-    // Start the game: set timer values, hide the setup screen, and show the game screen.
+    // Start (or restart) the game using current settings from the modal inputs.
     function startGame() {
-      redTime = parseInt(document.getElementById('redTime').value);
-      blueTime = parseInt(document.getElementById('blueTime').value);
+      redTime = parseInt(document.getElementById('redTimeInput').value);
+      blueTime = parseInt(document.getElementById('blueTimeInput').value);
       redInitial = redTime;
       blueInitial = blueTime;
-      currentPlayer = document.getElementById('startingPlayer').value;
-      
-      // Hide setup and show game screen.
-      document.getElementById('setup').classList.add('hidden');
-      document.getElementById('game').classList.remove('hidden');
+      currentPlayer = document.getElementById('startingPlayerInput').value;
       
       updateDisplays();
       startTimer();
     }
     
-    // Restart the game: stop the timer, hide the game screen, and show the setup screen.
+    // Restart game: clear timer and start fresh.
     function restartGame() {
       clearInterval(timerInterval);
       paused = false;
-      document.getElementById('game').classList.add('hidden');
-      document.getElementById('setup').classList.remove('hidden');
+      startGame();
     }
     
-    // Attach event listeners.
-    document.getElementById('startButton').addEventListener('click', startGame);
+    // --- Event Listeners ---
+    // Settings cog: open modal when clicked.
+    document.getElementById('settingsIcon').addEventListener('click', () => {
+      document.getElementById('settingsModal').style.display = 'flex';
+    });
     
+    // Close modal when clicking the close icon.
+    document.getElementById('closeModal').addEventListener('click', () => {
+      document.getElementById('settingsModal').style.display = 'none';
+    });
+    
+    // Apply settings button: update settings and restart game.
+    document.getElementById('applySettingsButton').addEventListener('click', () => {
+      document.getElementById('settingsModal').style.display = 'none';
+      restartGame();
+    });
+    
+    // Global key handling:
     document.addEventListener('keydown', (e) => {
-      if (!document.getElementById('setup').classList.contains('hidden')) {
-        if (e.key === 'Enter') {
-          startGame();
-        }
-      } else {
-        // In game: s to switch turn, p to pause/resume.
-        if (e.key.toLowerCase() === 's') {
-          playTriviaCorrectSound();
-          if (!paused) {
-            currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
-          }
-        }
-        if (e.key.toLowerCase() === 'p') {
-          paused = !paused;
+      // In-game controls:
+      if (e.key.toLowerCase() === 's') {
+        playTriviaCorrectSound();
+        if (!paused) {
+          currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
         }
       }
-      
-      // R will restart (return to setup screen) at any time.
+      if (e.key.toLowerCase() === 'p') {
+        paused = !paused;
+      }
       if (e.key.toLowerCase() === 'r') {
         restartGame();
       }
     });
     
+    // --- Sound Effects ---
     // Play a trivia "correct" sound effect: two quick cheerful tones.
     function playTriviaCorrectSound() {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -273,6 +293,9 @@
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 1);
     }
+    
+    // Start game automatically on page load with default settings.
+    window.onload = startGame;
   </script>
 </body>
 </html>
