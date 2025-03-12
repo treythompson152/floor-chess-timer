@@ -10,10 +10,10 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden; /* Prevent scrolling */
+      overflow: hidden;
       font-family: Arial, sans-serif;
     }
-    /* Main game screen fills viewport */
+    /* Main Game Screen */
     .game-screen {
       display: flex;
       width: 100%;
@@ -26,7 +26,6 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      overflow: hidden;
       font-size: 10vw;
       color: white;
     }
@@ -54,10 +53,10 @@
       font-size: 2em;
       color: white;
       cursor: pointer;
-      z-index: 100;
+      z-index: 300;
     }
-    /* Modal overlay for settings */
-    #settingsModal {
+    /* Modal styling for popups */
+    .modal {
       display: none; /* Hidden by default */
       position: fixed;
       top: 0;
@@ -69,7 +68,7 @@
       justify-content: center;
       align-items: center;
     }
-    #settingsModal .modal-content {
+    .modal .modal-content {
       background: white;
       padding: 20px;
       border-radius: 8px;
@@ -77,15 +76,14 @@
       position: relative;
       min-width: 300px;
     }
-    #settingsModal .modal-content input,
-    #settingsModal .modal-content select,
-    #settingsModal .modal-content button {
+    .modal .modal-content input,
+    .modal .modal-content select,
+    .modal .modal-content button {
       font-size: 1em;
       margin: 10px;
       padding: 5px;
     }
-    /* Close icon for the modal */
-    #closeModal {
+    .modal .close {
       position: absolute;
       top: 10px;
       right: 10px;
@@ -113,9 +111,9 @@
   <div id="settingsIcon">⚙</div>
 
   <!-- Settings Modal -->
-  <div id="settingsModal">
+  <div id="settingsModal" class="modal">
     <div class="modal-content">
-      <span id="closeModal">&times;</span>
+      <span id="closeSettings" class="close">&times;</span>
       <h2>Settings</h2>
       <div>
         <label for="redTimeInput">Red Timer (seconds):</label>
@@ -136,12 +134,26 @@
     </div>
   </div>
 
+  <!-- Controls Modal (shown on load) -->
+  <div id="controlsModal" class="modal">
+    <div class="modal-content">
+      <h2>Controls</h2>
+      <p>
+        Press <strong>s</strong> to switch turns (with a correct sound).<br>
+        Press <strong>p</strong> to pause/resume the timer.<br>
+        Press <strong>r</strong> to restart the game.<br>
+        Click the gear icon in the top-right to adjust settings.
+      </p>
+      <button id="startTimerButton">Start Timer</button>
+    </div>
+  </div>
+
   <script>
     // Global timer variables
     let redTime, blueTime, redInitial, blueInitial;
     let currentPlayer; // "red" or "blue"
     let timerInterval = null;
-    let paused = false;
+    let paused = true;  // Start paused by default
     
     // Element references for timer displays and drains
     const redDisplay = document.getElementById('redDisplay');
@@ -216,25 +228,31 @@
     // Restart game: clear timer and start fresh.
     function restartGame() {
       clearInterval(timerInterval);
-      paused = false;
+      paused = true;
       startGame();
     }
     
     // --- Event Listeners ---
-    // Settings cog: open modal when clicked.
+    // Show settings modal when cog is clicked.
     document.getElementById('settingsIcon').addEventListener('click', () => {
       document.getElementById('settingsModal').style.display = 'flex';
     });
     
-    // Close modal when clicking the close icon.
-    document.getElementById('closeModal').addEventListener('click', () => {
+    // Close settings modal when close icon is clicked.
+    document.getElementById('closeSettings').addEventListener('click', () => {
       document.getElementById('settingsModal').style.display = 'none';
     });
     
-    // Apply settings button: update settings and restart game.
+    // Apply settings and restart game.
     document.getElementById('applySettingsButton').addEventListener('click', () => {
       document.getElementById('settingsModal').style.display = 'none';
       restartGame();
+    });
+    
+    // Controls modal "Start Timer" button: dismiss modal and unpause.
+    document.getElementById('startTimerButton').addEventListener('click', () => {
+      document.getElementById('controlsModal').style.display = 'none';
+      paused = false;
     });
     
     // Global key handling:
@@ -255,7 +273,7 @@
     });
     
     // --- Sound Effects ---
-    // Play a trivia "correct" sound effect: two quick cheerful tones.
+    // Play a trivia "correct" sound effect: two quick, cheerful tones.
     function playTriviaCorrectSound() {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const osc1 = audioCtx.createOscillator();
@@ -294,8 +312,12 @@
       oscillator.stop(audioCtx.currentTime + 1);
     }
     
-    // Start game automatically on page load with default settings.
-    window.onload = startGame;
+    // On page load, start the game (in paused mode) and show the controls modal.
+    window.onload = () => {
+      startGame();
+      // Show the controls popup
+      document.getElementById('controlsModal').style.display = 'flex';
+    };
   </script>
 </body>
 </html>
