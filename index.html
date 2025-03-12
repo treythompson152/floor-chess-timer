@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chess Timer</title>
+  <style>
+    /* Global resets and fonts */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+    .hidden { display: none; }
+
+    /* Setup screen styling */
+    .setup-screen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      background: #f0f0f0;
+    }
+    .setup-screen div {
+      text-align: center;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .setup-screen input, .setup-screen select, .setup-screen button {
+      font-size: 1.5em;
+      margin: 10px;
+      padding: 5px;
+    }
+
+    /* Game screen: split into two halves */
+    .game-screen {
+      display: flex;
+      height: 100%;
+    }
+    .player {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      color: white;
+      /* Make the timer number really big for projection */
+      font-size: 10vw;
+    }
+    /* Red and blue backgrounds */
+    .red { background: red; }
+    .blue { background: blue; }
+
+    /* The drain (hourglass) effect */
+    .drain {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      /* Start full and then decrease in height */
+      height: 100%;
+      transition: height 1s linear;
+      z-index: 1;
+    }
+    /* Ensure the numeric display sits above the drain */
+    .timer {
+      position: relative;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <!-- Setup screen -->
+  <div id="setup" class="setup-screen">
+    <div>
+      <h1>Chess Timer Setup</h1>
+      <div>
+        <label for="redTime">Red Timer (seconds):</label>
+        <input type="number" id="redTime" value="300" min="1">
+      </div>
+      <div>
+        <label for="blueTime">Blue Timer (seconds):</label>
+        <input type="number" id="blueTime" value="300" min="1">
+      </div>
+      <div>
+        <label for="startingPlayer">Starting Player:</label>
+        <select id="startingPlayer">
+          <option value="red">Red</option>
+          <option value="blue">Blue</option>
+        </select>
+      </div>
+      <div>
+        <button id="startButton">Start Game</button>
+      </div>
+      <p style="font-size: 1em; margin-top:20px;">
+        Press SPACE to switch turns (with a ding) and "p" to pause/resume.
+      </p>
+    </div>
+  </div>
+
+  <!-- Game screen -->
+  <div id="game" class="game-screen hidden">
+    <!-- Red side -->
+    <div id="redSide" class="player red">
+      <div class="timer" id="redDisplay">300</div>
+      <!-- The drain overlay; for a red player you might use a lighter red -->
+      <div id="redDrain" class="drain" style="background-color: rgba(255,200,200,0.5);"></div>
+    </div>
+    <!-- Blue side -->
+    <div id="blueSide" class="player blue">
+      <div class="timer" id="blueDisplay">300</div>
+      <!-- For blue, a lighter blue overlay -->
+      <div id="blueDrain" class="drain" style="background-color: rgba(200,200,255,0.5);"></div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables to hold times and state
+    let redTime, blueTime, redInitial, blueInitial;
+    let currentPlayer; // "red" or "blue"
+    let timerInterval = null;
+    let paused = false;
+
+    // Get references to displays and drain elements
+    const redDisplay = document.getElementById('redDisplay');
+    const blueDisplay = document.getElementById('blueDisplay');
+    const redDrain = document.getElementById('redDrain');
+    const blueDrain = document.getElementById('blueDrain');
+
+    // When "Start Game" is clicked, read inputs and switch screens
+    document.getElementById('startButton').addEventListener('click', function(){
+      redTime = parseInt(document.getElementById('redTime').value);
+      blueTime = parseInt(document.getElementById('blueTime').value);
+      redInitial = redTime;
+      blueInitial = blueTime;
+      currentPlayer = document.getElementById('startingPlayer').value;
+      
+      // Hide setup and show game screen
+      document.getElementById('setup').classList.add('hidden');
+      document.getElementById('game').classList.remove('hidden');
+      
+      updateDisplays();
+      startTimer();
+    });
+
+    // Update the numeric displays and drain heights
+    function updateDisplays() {
+      redDisplay.textContent = redTime;
+      blueDisplay.textContent = blueTime;
+      
+      let redPercent = (redTime / redInitial) * 100;
+      let bluePercent = (blueTime / blueInitial) * 100;
+      redDrain.style.height = redPercent + '%';
+      blueDrain.style.height = bluePercent + '%';
+    }
+
+    // Timer function: tick every second
+    function startTimer() {
+      if(timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(function(){
+        if(paused) return;  // Do nothing if paused
+        if(currentPlayer === 'red') {
+          if(redTime > 0) {
+            redTime--;
+            updateDisplays();
+          } else {
+            clearInterval(timerInterval);
+            alert("Red's time is up!");
+          }
+        } else {
+          if(blueTime > 0) {
+            blueTime--;
+            updateDisplays();
+          } else {
+            clearInterval(timerInterval);
+            alert("Blue's time is up!");
+          }
+        }
+      }, 1000);
+    }
+
+    // Listen for key presses
+    document.addEventListener('keydown', function(e) {
+      // Space: switch turn (if not paused) with a "ding"
+      if (e.code === 'Space') {
+        playDing();
+        if (!paused) {
+          currentPlayer = (currentPlayer === 'red') ? 'blue' : 'red';
+        }
+      }
+      // "p": toggle pause/resume
+      if (e.key.toLowerCase() === 'p') {
+        paused = !paused;
+      }
+    });
+
+    // Play a simple "ding" sound using the Web Audio API
+    function playDing() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // 880 Hz tone
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.1);  // Short beep
+    }
+  </script>
+</body>
+</html>
