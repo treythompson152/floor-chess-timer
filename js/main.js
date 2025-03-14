@@ -1,6 +1,6 @@
 // Global timer variables (in seconds, as floats)
 // Initialize to 30 so that NaN is not shown at startup.
-let redTime = 30, blueTime = 30, redInitial = 30, blueInitial = 30;
+let redTime = 15, blueTime = 15, redInitial = 15, blueInitial = 15;
 let currentPlayer; // "red" or "blue"
 let paused = true; // Game starts paused
 let lastUpdateTime;
@@ -116,12 +116,12 @@ function playSwitchSound() {
 // "s" switches turns (playing the switch sound), "p" pauses/resumes, and "r" restarts (shows the startup popup).
 document.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
-  if (key === "Arrow.Right") {
+  if (key === "arrowright") {
     if (!paused) {
       playSwitchSound();
       currentPlayer = (currentPlayer === "red") ? "blue" : "red";
       lastUpdateTime = performance.now();
-      pause = true
+      paused = true
     }
   } else if (key === ' ' || key === 'Space') {
     paused = !paused;
@@ -137,25 +137,33 @@ document.addEventListener("keydown", (e) => {
 // Pass function that turns the active player's side yellow for 3 seconds and then pauses the game.
 function passTurn() {
     if (currentPlayer === "red") {
-      const originalColor = "red";
+      const originalBg = "red";
+      const originalText = "white";
       redSide.style.backgroundColor = "yellow";
+      redDisplay.style.color = "black";
       setTimeout(() => {
-        redSide.style.backgroundColor = originalColor;
-      }, 3000);
+        redSide.style.backgroundColor = originalBg;
+        redDisplay.style.color = originalText;
+        paused = true;
+      }, 2000);
     } else if (currentPlayer === "blue") {
-      const originalColor = "blue";
+      const originalBg = "blue";
+      const originalText = "white";
       blueSide.style.backgroundColor = "yellow";
+      blueDisplay.style.color = "black";
       setTimeout(() => {
-        blueSide.style.backgroundColor = originalColor;
-      }, 3000);
+        blueSide.style.backgroundColor = originalBg;
+        blueDisplay.style.color = originalText;
+        paused = true;
+      }, 2000);
     }
-    paused = true;
   }
+  
 
 // Startup modal: when "Start Timer" is clicked, initialize timers and start the game.
 startTimerButton.addEventListener("click", () => {
-  redTime = parseFloat(document.getElementById("redTimeInput").value) || 30;
-  blueTime = parseFloat(document.getElementById("blueTimeInput").value) || 30;
+  redTime = parseFloat(document.getElementById("redTimeInput").value) || 15;
+  blueTime = parseFloat(document.getElementById("blueTimeInput").value) || 15;
   redInitial = redTime;
   blueInitial = blueTime;
   currentPlayer = document.getElementById("startingColorInput").value;

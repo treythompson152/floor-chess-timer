@@ -11,12 +11,12 @@
   <div id="game" class="game-screen">
     <!-- Red Side -->
     <div id="redSide" class="player red">
-      <div id="redDisplay" class="timer">30</div>
+      <div id="redDisplay" class="timer">15</div>
       <div id="redDrain" class="drain"></div>
     </div>
     <!-- Blue Side -->
     <div id="blueSide" class="player blue">
-      <div id="blueDisplay" class="timer">30</div>
+      <div id="blueDisplay" class="timer">15</div>
       <div id="blueDrain" class="drain"></div>
     </div>
   </div>
@@ -28,13 +28,13 @@
       <p>
         Press <strong>-></strong> to switch turns.<br>
         Press <strong>Space</strong> to pause/resume the timer.<br>
-        Press <strong>R</strong> to restart the game.
-        Press <strong>P</strong> if the player passes and they will receive a three second penalty.
+        Press <strong>R</strong> to restart the game.<br>
+        Press <strong>P</strong> if the player passes and they will receive a two second penalty.
       </p>
       <label for="redTimeInput">Red Timer (seconds):</label>
-      <input type="number" id="redTimeInput" value="30" min="1">
+      <input type="number" id="redTimeInput" value="15" min="1">
       <label for="blueTimeInput">Blue Timer (seconds):</label>
-      <input type="number" id="blueTimeInput" value="30" min="1">
+      <input type="number" id="blueTimeInput" value="15" min="1">
       <label for="startingColorInput">Starting Color:</label>
       <select id="startingColorInput">
         <option value="red">Red</option>
